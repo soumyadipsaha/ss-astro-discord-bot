@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, Response
 from .astro.chart import build_chart
 from .astro.ephemeris import close, init_ephe
 from .astro.format import format_discord, format_text
+from .astro.north_chart import render_north_chart
 from .config import settings
 from .interactions import handle_interaction
 from .verify import verify_signature
@@ -48,12 +49,16 @@ async def chart(
     tz: float,
     chalit: bool = False,
     text: bool = False,
+    image: bool = False,
     ayanamsa_offset: float | None = None,
 ):
     offset = settings.ayanamsa_offset_arcmin if ayanamsa_offset is None else ayanamsa_offset
     result = await asyncio.to_thread(
         build_chart, date, time, lat, lon, tz, chalit, offset
     )
+    if image:
+        svg = await asyncio.to_thread(render_north_chart, result)
+        return Response(svg, media_type="image/svg+xml")
     if text:
         return Response(format_text(result), media_type="text/plain")
     return {**result, "discord_embed": format_discord(result)}

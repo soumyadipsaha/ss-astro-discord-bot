@@ -1,5 +1,6 @@
 from app.astro import chart
 from app.astro.ephemeris import init_ephe
+from app.astro.north_chart import degree_minute, render_north_chart
 
 
 def setup_module(_module):
@@ -69,3 +70,67 @@ def test_custom_ayanamsa_offset():
     for key in ["Surya (Sun)", "Chandra (Moon)", "Lagna (Ascendant)"]:
         diff = (by_name(base)[key]["longitude"] - by_name(custom)[key]["longitude"]) % 360
         assert abs(diff - 0.1) < 1e-9, key
+
+
+def test_north_chart_svg_well_formed():
+    result = chart.build_chart("2000-01-01", "17:30", 28.6139, 77.2090, 5.5)
+    svg = render_north_chart(result)
+    stripped = svg.strip()
+    assert stripped.startswith("<svg")
+    assert stripped.endswith("</svg>")
+    assert 'viewBox="0 0 480 480"' in svg
+    assert 'class="sign-num"' in svg
+    assert 'class="planet-abbr"' in svg
+    assert 'class="planet-deg"' in svg
+
+
+def test_north_chart_contains_ascendant_sign_number():
+    result = chart.build_chart("2000-01-01", "17:30", 28.6139, 77.2090, 5.5)
+    asc_sign_index = result["bodies"][0]["sign_index"]
+    svg = render_north_chart(result)
+    # house 1 shows the ascendant's sign number (unpadded, per NewNIChart style)
+    assert f'class="sign-num">{asc_sign_index + 1}</text>' in svg
+
+
+def test_north_chart_uses_single_app_colors():
+    result = chart.build_chart("2000-01-01", "17:30", 28.6139, 77.2090, 5.5)
+    svg = render_north_chart(result)
+    # theme tokens from single-app/src/app.css
+    assert 'fill="#ffffff"' in svg          # surface house fill
+    assert 'stroke="#09090b"' in svg         # text skeleton
+    # no jyotichart color preferences remain
+    assert "pink" not in svg and '"yellow"' not in svg
+
+
+def test_north_chart_plots_ascendant():
+    result = chart.build_chart("2000-01-01", "17:30", 28.6139, 77.2090, 5.5)
+    svg = render_north_chart(result)
+    # Ascendant badge in house 1, ascendant color from colors.ts
+    assert 'class="planet-abbr">As</text>' in svg
+    assert 'fill="#5ea500"' in svg
+
+
+def test_degree_minute_truncates_not_rounds():
+    # 10°25'37" -> "10°25′" (truncated, NOT rounded to 26)
+    assert degree_minute(10 + 25 / 60 + 37 / 3600) == "10\N{DEGREE SIGN}25\N{PRIME}"
+    # exact minute boundary stays exact despite float repr
+    assert degree_minute(10 + 26 / 60) == "10\N{DEGREE SIGN}26\N{PRIME}"
+    # 10°25'59.9" still truncates to 25
+    assert degree_minute(10 + (25 + 59.9 / 60) / 60) == "10\N{DEGREE SIGN}25\N{PRIME}"
+
+
+def test_north_chart_planets_centered_with_degree():
+    result = chart.build_chart("2000-01-01", "17:30", 28.6139, 77.2090, 5.5)
+    svg = render_north_chart(result)
+    # every planet abbr is centered and paired with a centered degree line
+    assert 'text-anchor="middle" dominant-baseline="middle"' in svg
+    assert any(
+        "planet-deg" in line for line in svg.splitlines() if "text" in line
+    )
+
+
+def test_north_chart_chalit_renders():
+    result = chart.build_chart("2000-01-01", "17:30", 28.6139, 77.2090, 5.5, chalit=True)
+    svg = render_north_chart(result)
+    assert svg.strip().startswith("<svg")
+    assert svg.strip().endswith("</svg>")
