@@ -49,8 +49,11 @@ def test_vedic_command_returns_embed():
         "data": {
             "name": "vedic",
             "options": [
-                {"name": "date", "value": "2000-01-01"},
-                {"name": "time", "value": "12:00"},
+                {"name": "year", "value": 2000},
+                {"name": "month", "value": 1},
+                {"name": "day", "value": 1},
+                {"name": "hour", "value": 12},
+                {"name": "minute", "value": 0},
                 {"name": "lat", "value": 28.6139},
                 {"name": "lon", "value": 77.2090},
                 {"name": "tz", "value": 5.5},

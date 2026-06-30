@@ -8,7 +8,7 @@
 # ── Theme tokens (single-app/src/app.css, :root defaults) ──────────────────
 SURFACE = "#ffffff"
 TEXT = "#09090b"
-CHART_FONT = "sans-serif"
+CHART_FONT = "'Sofia Sans Extra Condensed', sans-serif"
 
 # ── Planet styles (single-app/src/lib/{colors,planets}.ts) ──────────────────
 # sanskrit prefix -> (short label, color)
@@ -181,11 +181,11 @@ def placed_planets(h, entries):
 
 # ── Data helpers ────────────────────────────────────────────────────────────
 def degree_minute(longitude: float) -> str:
-    """Within-sign degrees/minutes, truncated (not rounded): 10°25'37" -> 10°25′."""
+    """Within-sign degrees:minutes, truncated (not rounded): 10°25'37\" -> "10:25"."""
     within = longitude % 30
     deg = int(within)
     minutes = int((within - deg) * 60 + 1e-9)
-    return f"{deg}\N{DEGREE SIGN}{minutes:02d}\N{PRIME}"
+    return f"{deg}:{minutes:02d}"
 
 
 def _house_of(body: dict, asc_sign_index: int, chalit: bool) -> int:

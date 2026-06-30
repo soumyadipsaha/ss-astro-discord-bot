@@ -105,18 +105,18 @@ def test_north_chart_uses_single_app_colors():
 def test_north_chart_plots_ascendant():
     result = chart.build_chart("2000-01-01", "17:30", 28.6139, 77.2090, 5.5)
     svg = render_north_chart(result)
-    # Ascendant badge in house 1, ascendant color from colors.ts
-    assert 'class="planet-abbr">As</text>' in svg
+    # Ascendant badge in house 1, ascendant color from colors.ts (text fill, no blob)
+    assert 'class="planet-abbr" fill="#5ea500">As</text>' in svg
     assert 'fill="#5ea500"' in svg
 
 
 def test_degree_minute_truncates_not_rounds():
-    # 10°25'37" -> "10°25′" (truncated, NOT rounded to 26)
-    assert degree_minute(10 + 25 / 60 + 37 / 3600) == "10\N{DEGREE SIGN}25\N{PRIME}"
+    # 10°25'37" -> "10:25" (truncated, NOT rounded to 26)
+    assert degree_minute(10 + 25 / 60 + 37 / 3600) == "10:25"
     # exact minute boundary stays exact despite float repr
-    assert degree_minute(10 + 26 / 60) == "10\N{DEGREE SIGN}26\N{PRIME}"
+    assert degree_minute(10 + 26 / 60) == "10:26"
     # 10°25'59.9" still truncates to 25
-    assert degree_minute(10 + (25 + 59.9 / 60) / 60) == "10\N{DEGREE SIGN}25\N{PRIME}"
+    assert degree_minute(10 + (25 + 59.9 / 60) / 60) == "10:25"
 
 
 def test_north_chart_planets_centered_with_degree():
