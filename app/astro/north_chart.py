@@ -198,8 +198,8 @@ def _style_block() -> str:
     return (
         "  <style>\n"
         f"    .sign-num {{ font-size:22px; font-weight:700; font-family:{CHART_FONT}; fill:{TEXT}; }}\n"
-        f"    .planet-abbr {{ font-size:11px; font-weight:400; font-family:{CHART_FONT}; }}\n"
-        f"    .planet-deg {{ font-size:7px; font-weight:500; font-family:{CHART_FONT}; }}\n"
+        f"    .planet-abbr {{ font-size:13px; font-weight:400; font-family:{CHART_FONT}; }}\n"
+        f"    .planet-deg {{ font-size:9px; font-weight:500; font-family:{CHART_FONT}; }}\n"
         "  </style>\n"
     )
 

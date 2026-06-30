@@ -44,7 +44,7 @@ SIGN_CELL = {
     11: (0, 0),   # Pisces
 }
 
-ABBR_SIZE = 12
+ABBR_SIZE = 13
 DEG_SIZE  = 9
 ENTRY_H   = 25   # pixels between planet rows (showDegrees=true, compact=false)
 PAD_Y     = 6    # vertical padding inside a cell
@@ -233,12 +233,12 @@ def render_south_chart(result: dict) -> str:
             anchor  = pt.get("anchor", "middle")
             retro   = '<tspan dy="-4" font-size="7">R</tspan>' if pt["isRetro"] else ""
             out.append(
-                f'  <text x="{x}" y="{y - 7}" text-anchor="{anchor}" '
+                f'  <text x="{x}" y="{y - 4}" text-anchor="{anchor}" '
                 f'dominant-baseline="middle" class="planet-abbr" fill="{pt["color"]}">'
                 f'{pt["label"]}{retro}</text>\n'
             )
             out.append(
-                f'  <text x="{x}" y="{y + 9}" text-anchor="{anchor}" '
+                f'  <text x="{x}" y="{y + 5}" text-anchor="{anchor}" '
                 f'dominant-baseline="middle" class="planet-deg" fill="{pt["color"]}">'
                 f'{pt["deg"]}</text>\n'
             )
