@@ -1,94 +1,99 @@
 # Vedic Discord Bot
 
-A Discord slash-command bot that returns **sidereal (Lahiri) positions of the Ascendant and the Hindu Navagraha**, powered by the official [Swiss Ephemeris](https://github.com/aloistr/swisseph) via its Python bindings ([`pysweph`](https://pypi.org/project/pysweph/)). Runs on **Vercel** (free Hobby tier) as a FastAPI app, managed with **uv**.
+A Discord slash-command bot that returns a **sidereal (Lahiri) Vedic chart** — a North-Indian chart image rendered inline, plus the Ascendant and Navagraha positions. Powered by the official [Swiss Ephemeris](https://github.com/aloistr/swisseph) via [`pysweph`](https://pypi.org/project/pysweph/). Runs on **Vercel** (free tier) as a FastAPI app, managed with **uv**.
 
-## What it computes
+## What `/vedic` returns
 
-`/vedic date time lat lon tz [chalit]` →
+`/vedic date time lat lon tz [chalit]` → a "Bot is thinking…" reply that resolves into:
 
-- **Ascendant (Lagna)** sidereal longitude, rasi (sign), nakshatra + pada
-- **Navagraha**: Surya, Chandra, Mangala, Budha, Guru, Shukra, Shani, Rahu (mean node), Ketu (= Rahu + 180°) — each with sidereal longitude, sign, nakshatra/pada, retrograde flag
-- **Ayanamsa**: Lahiri (Chitrapaksha), `SE_SIDM_LAHIRI`
-- **`chalit` option**: Porphyry (`'O'`) house cusps are used as bhava *madhya* (centers); bhava boundaries are the midpoints between consecutive cusps — the standard **Sripati** convention used for bhava-chalit. Each graha is then assigned to its bhava (1–12). This is **Porphyry/Sripati, not Placidus.**
+- A **North-Indian chart image** (SVG → PNG, shown inline in Discord)
+- **Lagna (Ascendant)** + **Navagraha** (Surya…Shani, Rahu, Ketu) — sidereal longitude, sign, nakshatra + pada, retrograde flag
+- With `chalit: true` — Sripati (Porphyry) bhava placements for each graha
 
-Data files: `ephe/sepl_18.se1` (planets) + `semo_18.se1` (Moon) cover **1800–2399** at full Swiss Ephemeris (DE441-based) precision (~0.001″). Calculations beyond that range fall back to the built-in Moshier model.
+Ayanamsa: Lahiri (`SE_SIDM_LAHIRI`), adjustable via `AYANAMSA_OFFSET_ARCMIN`.
 
-## Project layout
+## Prerequisites
 
-```
-app/
-  main.py            FastAPI app: /interactions, /health, /cron
-  verify.py          Ed25519 signature verification (PyNaCl)
-  interactions.py    Discord interaction dispatch (PING + /vedic)
-  commands.py        Slash-command schema for /vedic
-  config.py          Env-var settings
-  astro/
-    ephemeris.py     pysweph init (ephe path + Lahiri sidereal mode)
-    chart.py         Core: julian day, sidereal calc, houses, Sripati bhavas
-    format.py        Discord embed / text formatting
-    constants.py     Rasi, nakshatra, and graha tables
-ephe/                sepl_18.se1, semo_18.se1  (bundled into the function)
-register.py          Registers /vedic with Discord
-tests/               Astronomy + HTTP/signing tests
-pyproject.toml       uv-managed deps; Vercel entrypoint = app.main:app
-vercel.json          Keep-warm cron (every 10 min) -> /cron
-```
+- [uv](https://docs.astral.sh/uv/) and Python 3.13
+- A [Discord](https://discord.com) account
 
-## Local development
+## 1. Create the Discord app
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.13.
+1. Go to <https://discord.com/developers/applications> → **New Application**.
+2. Copy three values:
+   - **General Information** → **Application ID**
+   - **General Information** → **Public Key**
+   - **Bot** → **Reset Token** → **Token**
+
+## 2. Configure environment
 
 ```bash
-uv sync
-cp .env.example .env     # then fill in your Discord credentials
-uv run pytest            # 10 tests: astronomy + signed interaction flow
-uv run uvicorn app.main:app --reload --port 8787
+cp .env.example .env
 ```
 
-Expose the local server over HTTPS for Discord (e.g. `cloudflared tunnel --url http://localhost:8787` or `ngrok http 8787`), then set that URL as the application's Interactions Endpoint.
+Fill in your `.env`:
 
-## Discord setup
+```
+DISCORD_APP_ID=...
+DISCORD_PUBLIC_KEY=...
+DISCORD_TOKEN=...
+AYANAMSA_OFFSET_ARCMIN=6
+```
 
-1. Create an application at <https://discord.com/developers/applications>.
-2. From **General Information**, copy the **Public Key** and **Application ID**.
-3. From **Bot**, reset and copy the **Token**.
-4. Put them in `.env`:
+> The project does **not** auto-load `.env`, so pass `--env-file .env` to every `uv run` command below.
 
-   ```
-   DISCORD_APP_ID=...
-   DISCORD_PUBLIC_KEY=...
-   DISCORD_TOKEN=...
-   ```
+## 3. Register the slash command (once)
 
-5. Register the slash command (run once):
+```bash
+uv run --env-file .env python register.py
+```
 
+You should see `registered /vedic (id ...)`.
+
+## 4. Test it locally
+
+1. Start the server:
    ```bash
-   uv run python register.py
+   uv run --env-file .env uvicorn app.main:app --reload --port 8787
    ```
+2. Expose it over HTTPS (Discord requires it), in another terminal:
+   ```bash
+   cloudflared tunnel --url http://localhost:8787
+   # or: ngrok http 8787
+   ```
+3. Copy the HTTPS URL. In the Discord portal: **General Information → Interactions Endpoint URL** → set `https://<that-url>/interactions` → Save. (Save fails if the server isn't running — Discord pings it on save.)
+4. Invite the bot: **OAuth2 → URL Generator** → scopes `bot` + `applications.commands` → open the URL → pick a test server.
+5. In Discord, type `/vedic` and fill in the fields. You'll see "Bot is thinking…" then the chart + embed.
 
-6. Deploy (below), then set the deployed URL `https://<project>.vercel.app/interactions` as the **Interactions Endpoint URL** in the Discord developer portal.
-
-## Deploy to Vercel
-
-This project uses `pyproject.toml` + `uv.lock` (Vercel's Python runtime reads them natively) and pins Python 3.13 via `.python-version`. The FastAPI app is exposed through `[tool.vercel] entrypoint = "app.main:app"`.
+## 5. Deploy to Vercel (production)
 
 ```bash
 npm i -g vercel
-vercel               # link / create project
+vercel                       # link / create project
 vercel env add DISCORD_APP_ID
 vercel env add DISCORD_PUBLIC_KEY
 vercel env add DISCORD_TOKEN
+vercel env add AYANAMSA_OFFSET_ARCMIN
 vercel --prod
 ```
 
-The `ephe/*.se1` files (~1.7 MB total) are bundled into the function automatically.
+Then switch the **Interactions Endpoint URL** to `https://<project>.vercel.app/interactions` → Save. You can now close the local tunnel from step 4.
 
-### Keeping it warm (free tier)
+Vercel reads `pyproject.toml` + `uv.lock` natively; the FastAPI app is exposed via `[tool.vercel] entrypoint = "app.main:app"`, and the `ephe/*.se1` files (~1.7 MB) are bundled automatically.
 
-Vercel Functions scale to zero; a cold start after idle can exceed Discord's 3-second ACK. `vercel.json` defines a cron hitting `/cron` every 10 minutes. If the Hobby-plan cron frequency is insufficient, point a free external cron (e.g. cron-job.org) at `https://<project>.vercel.app/cron`.
+### Keep it warm
+
+Vercel Functions scale to zero; a cold start can exceed Discord's 3-second ACK. `vercel.json` defines a cron hitting `/cron` every 10 minutes. If that's not enough, point a free external cron (e.g. cron-job.org) at `https://<project>.vercel.app/cron`.
+
+## Tests
+
+```bash
+uv run pytest
+```
 
 ## Notes
 
-- **Time input**: `time` is the local clock time at the birth place; `tz` is the UTC offset (e.g. `5.5` IST, `-4` EDT). The bot converts to UT before computing.
-- **Rahu/Ketu**: uses the mean lunar node (`SE_MEAN_NODE`); Ketu is exactly 180° from Rahu.
-- **License**: Swiss Ephemeris is dual-licensed **AGPL** or a paid Professional license from Astrodienst. Public hosting of an AGPL-derived bot carries source-disclosure obligations; acquire a Professional license otherwise.
+- **Time input**: `time` is the local clock time at the birth place; `tz` is the UTC offset (e.g. `5.5` IST, `-4` EDT).
+- **Rahu/Ketu**: mean lunar node; Ketu is exactly 180° from Rahu.
+- **Data files**: `ephe/*.se1` cover **1800–2399** at full Swiss Ephemeris precision.
+- **License**: Swiss Ephemeris is dual-licensed **AGPL** or a paid Professional license from Astrodienst.
