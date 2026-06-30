@@ -9,6 +9,7 @@ from .astro.format import format_discord
 from .astro.geo import lookup_city, utc_offset
 from .astro.north_chart import render_north_chart
 from .astro.render import svg_to_png
+from .astro.south_chart import render_south_chart
 from .config import settings
 from .discord import edit_original_text, edit_original_with_file
 
@@ -73,7 +74,8 @@ async def _finalize_vedic(app_id: str, token: str, data: dict) -> None:
         )
         result["city"] = geo["display"]
         result["tz_name"] = geo["tz_name"]
-        svg = await asyncio.to_thread(render_north_chart, result)
+        renderer = render_south_chart if opts.get("chart_style") == "south" else render_north_chart
+        svg = await asyncio.to_thread(renderer, result)
         png = await asyncio.to_thread(svg_to_png, svg)
     except KeyError as e:
         await _respond_error(app_id, token, f"Missing required option: {e.args[0]}")
