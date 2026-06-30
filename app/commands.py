@@ -41,21 +41,9 @@ VEDIC_COMMAND = {
             "max_value": 59,
         },
         {
-            "name": "lat",
-            "description": "Latitude of the birth place (e.g. 28.6139 for Delhi)",
-            "type": 10,
-            "required": True,
-        },
-        {
-            "name": "lon",
-            "description": "Longitude of the birth place (e.g. 77.2090 for Delhi)",
-            "type": 10,
-            "required": True,
-        },
-        {
-            "name": "tz",
-            "description": "UTC offset at birth (e.g. 5.5 for IST, -4 for EDT)",
-            "type": 10,
+            "name": "city",
+            "description": "Birth city (e.g. Mumbai, London, New York)",
+            "type": 3,
             "required": True,
         },
         {

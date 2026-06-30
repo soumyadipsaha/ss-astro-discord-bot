@@ -6,6 +6,7 @@ from starlette.responses import JSONResponse
 
 from .astro.chart import build_chart
 from .astro.format import format_discord
+from .astro.geo import lookup_city, utc_offset
 from .astro.north_chart import render_north_chart
 from .astro.render import svg_to_png
 from .config import settings
@@ -52,18 +53,26 @@ async def _vedic(data: dict):
 async def _finalize_vedic(app_id: str, token: str, data: dict) -> None:
     opts = _options(data)
     try:
-        date_str = f"{int(opts['year'])}-{int(opts['month']):02d}-{int(opts['day']):02d}"
-        time_str = f"{int(opts['hour']):02d}:{int(opts['minute']):02d}"
+        year, month, day = int(opts["year"]), int(opts["month"]), int(opts["day"])
+        hour, minute = int(opts["hour"]), int(opts["minute"])
+        date_str = f"{year}-{month:02d}-{day:02d}"
+        time_str = f"{hour:02d}:{minute:02d}"
+
+        geo = await asyncio.to_thread(lookup_city, opts["city"])
+        tz = utc_offset(geo["tz_name"], year, month, day, hour, minute)
+
         result = await asyncio.to_thread(
             build_chart,
             date_str,
             time_str,
-            float(opts["lat"]),
-            float(opts["lon"]),
-            float(opts["tz"]),
+            geo["lat"],
+            geo["lon"],
+            tz,
             bool(opts.get("chalit", False)),
             settings.ayanamsa_offset_arcmin,
         )
+        result["city"] = geo["display"]
+        result["tz_name"] = geo["tz_name"]
         svg = await asyncio.to_thread(render_north_chart, result)
         png = await asyncio.to_thread(svg_to_png, svg)
     except KeyError as e:

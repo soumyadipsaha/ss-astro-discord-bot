@@ -13,6 +13,21 @@ def _body_line(body: dict, show_bhava: bool) -> str:
     return f"**{name}**{retro}\n{sym} {rashi} {deg} \u00b7 {nak}{bhava}"
 
 
+def _description(result: dict) -> str:
+    city = result.get("city")
+    tz_name = result.get("tz_name")
+    if city and tz_name:
+        location = f"{city} · {tz_name}"
+    else:
+        location = f"{result['lat']}, {result['lon']} (UTC{result['tz']:+g})"
+    label = result.get("ayanamsa_label", "Lahiri")
+    return (
+        f"**UT:** {result['ut']}\n"
+        f"**Location:** {location}\n"
+        f"**Ayanamsa ({label}):** {result['ayanamsa']:.4f}\N{DEGREE SIGN}"
+    )
+
+
 def format_discord(result: dict) -> dict:
     bodies = result["bodies"]
     asc = bodies[0]
@@ -40,11 +55,7 @@ def format_discord(result: dict) -> dict:
 
     return {
         "title": "\U0001f549\ufe0f Vedic Chart \u00b7 Sidereal",
-        "description": (
-            f"**UT:** {result['ut']}\n"
-            f"**Lat/Lon:** {result['lat']}, {result['lon']} (UTC{result['tz']:+g})\n"
-            f"**Ayanamsa ({result.get('ayanamsa_label', 'Lahiri')}):** {result['ayanamsa']:.4f}\N{DEGREE SIGN}"
-        ),
+        "description": _description(result),
         "fields": fields,
         "footer": {"text": footer},
         "color": 0x6A5ACD,
