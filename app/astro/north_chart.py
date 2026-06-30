@@ -8,7 +8,7 @@
 # ── Theme tokens (single-app/src/app.css, :root defaults) ──────────────────
 SURFACE = "#ffffff"
 TEXT = "#09090b"
-CHART_FONT = "'JetBrains Mono', 'Fira Mono', ui-monospace, monospace"
+CHART_FONT = "sans-serif"
 
 # ── Planet styles (single-app/src/lib/{colors,planets}.ts) ──────────────────
 # sanskrit prefix -> (short label, color)
