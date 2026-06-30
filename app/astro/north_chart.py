@@ -198,8 +198,8 @@ def _style_block() -> str:
     return (
         "  <style>\n"
         f"    .sign-num {{ font-size:22px; font-weight:700; font-family:{CHART_FONT}; fill:{TEXT}; }}\n"
-        f"    .planet-abbr {{ font-size:11px; font-weight:400; font-family:{CHART_FONT}; fill:#ffffff; }}\n"
-        f"    .planet-deg {{ font-size:7px; font-weight:500; font-family:{CHART_FONT}; fill:#ffffff; }}\n"
+        f"    .planet-abbr {{ font-size:11px; font-weight:400; font-family:{CHART_FONT}; }}\n"
+        f"    .planet-deg {{ font-size:7px; font-weight:500; font-family:{CHART_FONT}; }}\n"
         "  </style>\n"
     )
 
@@ -251,18 +251,14 @@ def render_north_chart(result: dict) -> str:
         )
         for pt in placed_planets(h, by_house.get(h, [])):
             x, y = clamp_to_polygon(pt["x"], pt["y"], POLYGON_PTS[h])
-            out.append(
-                f'  <rect x="{x - 13}" y="{y - 12}" width="26" height="24" rx="3" '
-                f'fill="{pt["color"]}" opacity="0.75" />\n'
-            )
             retro = '<tspan dy="-4" font-size="7">R</tspan>' if pt["isRetro"] else ""
             out.append(
                 f'  <text x="{x}" y="{y - 4}" text-anchor="middle" dominant-baseline="middle" '
-                f'class="planet-abbr">{pt["label"]}{retro}</text>\n'
+                f'class="planet-abbr" fill="{pt["color"]}">{pt["label"]}{retro}</text>\n'
             )
             out.append(
                 f'  <text x="{x}" y="{y + 5}" text-anchor="middle" dominant-baseline="middle" '
-                f'class="planet-deg">{pt["degree"]}</text>\n'
+                f'class="planet-deg" fill="{pt["color"]}">{pt["degree"]}</text>\n'
             )
 
     out.append('</svg>\n')

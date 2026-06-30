@@ -52,10 +52,12 @@ async def _vedic(data: dict):
 async def _finalize_vedic(app_id: str, token: str, data: dict) -> None:
     opts = _options(data)
     try:
+        date_str = f"{int(opts['year'])}-{int(opts['month']):02d}-{int(opts['day']):02d}"
+        time_str = f"{int(opts['hour']):02d}:{int(opts['minute']):02d}"
         result = await asyncio.to_thread(
             build_chart,
-            opts["date"],
-            opts["time"],
+            date_str,
+            time_str,
             float(opts["lat"]),
             float(opts["lon"]),
             float(opts["tz"]),
