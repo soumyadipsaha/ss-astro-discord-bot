@@ -65,13 +65,16 @@ def format_text(result: dict) -> str:
 
 
 def format_discord(result: dict) -> dict:
-    city    = result.get("city") or f"{result['lat']}, {result['lon']}"
-    tz      = result.get("tz_name") or f"UTC{result['tz']:+g}"
-    y, m, d = result["ut"][:10].split("-")
-    date    = f"{d}-{m}-{y}"
-    label   = result.get("ayanamsa_label", "Lahiri")
-    chalit  = " · Chalit" if result["chalit"] else ""
-    header  = f"{city} · {date} · {tz} · {label}{chalit}"
+    city     = result.get("city") or f"{result['lat']}, {result['lon']}"
+    tz       = result.get("tz_name") or f"UTC{result['tz']:+g}"
+    from datetime import timedelta
+    ut       = datetime.fromisoformat(result["ut"]).replace(tzinfo=timezone.utc)
+    local_dt = ut + timedelta(hours=result["tz"])
+    date     = f"{local_dt:%d-%m-%Y}"
+    time     = f"{local_dt:%H:%M}"
+    label    = result.get("ayanamsa_label", "Lahiri")
+    chalit   = " · Chalit" if result["chalit"] else ""
+    header   = f"{city} · {date} {time} · {tz} · {label}{chalit}"
 
     planet_lines = "\n".join(
         _body_line(b) for b in result["bodies"]
