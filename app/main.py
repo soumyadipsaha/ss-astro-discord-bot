@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 
 from .astro.chart import DEFAULT_AYANAMSA_OFFSET_ARCMIN, build_chart
-from .astro.ephemeris import close, init_ephe
+from .astro.ephemeris import init_ephe
 from .astro.format import format_discord, format_text
 from .astro.north_chart import render_north_chart
 from .config import settings
@@ -22,7 +22,12 @@ async def lifespan(_app: FastAPI):
     init_ephe()
     log.info("ephemeris initialised")
     yield
-    close()
+    # Not calling swe.close() here: sid_mode/ephemeris state is global to the
+    # swisseph C library, and serverless runtimes (e.g. Vercel Fluid Compute)
+    # reuse this process across concurrent/successive requests. Closing on
+    # "shutdown" raced with in-flight requests on a reused instance, clearing
+    # the Lahiri sidereal mode mid-computation and silently falling back to
+    # swisseph's default (Fagan-Bradley) ayanamsa.
 
 
 app = FastAPI(title="Vedic Discord Bot", lifespan=lifespan)
