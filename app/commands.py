@@ -64,7 +64,7 @@ VEDIC_COMMAND = {
         },
         {
             "name": "timezone",
-            "description": "Override the IANA timezone (e.g. Asia/Kolkata) used for the local-to-UTC conversion.",
+            "description": "Override the UTC offset (e.g. 5.5 or 5:30) used for the local-to-UTC conversion.",
             "type": 3,
             "required": False,
         },

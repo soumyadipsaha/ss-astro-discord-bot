@@ -84,6 +84,29 @@ def test_vedic_command_latlon_override_builds_chart():
     _run_and_assert_chart(payload, app_id="test-app", tok="ll-token")
 
 
+def test_vedic_command_unknown_city_with_latlon_tz_overrides_builds_chart():
+    payload = {
+        "type": 2,
+        "token": "unknown-city-token",
+        "application_id": "test-app",
+        "data": {
+            "name": "vedic",
+            "options": [
+                {"name": "year", "value": 1994},
+                {"name": "month", "value": 12},
+                {"name": "day", "value": 13},
+                {"name": "hour", "value": 10},
+                {"name": "minute", "value": 37},
+                {"name": "city", "value": "Karimganj"},
+                {"name": "latitude", "value": 24.8649},
+                {"name": "longitude", "value": 92.3592},
+                {"name": "timezone", "value": "5.5"},
+            ],
+        },
+    }
+    _run_and_assert_chart(payload, app_id="test-app", tok="unknown-city-token")
+
+
 def test_vedic_command_timezone_override_builds_chart():
     payload = {
         "type": 2,
@@ -98,11 +121,45 @@ def test_vedic_command_timezone_override_builds_chart():
                 {"name": "hour", "value": 12},
                 {"name": "minute", "value": 0},
                 {"name": "city", "value": "Delhi"},
-                {"name": "timezone", "value": "America/New_York"},
+                {"name": "timezone", "value": "-5"},
             ],
         },
     }
     _run_and_assert_chart(payload, app_id="test-app", tok="tz-token")
+
+
+def test_vedic_command_iana_timezone_override_rejected():
+    payload = {
+        "type": 2,
+        "token": "iana-token",
+        "application_id": "test-app",
+        "data": {
+            "name": "vedic",
+            "options": [
+                {"name": "year", "value": 2000},
+                {"name": "month", "value": 1},
+                {"name": "day", "value": 1},
+                {"name": "hour", "value": 12},
+                {"name": "minute", "value": 0},
+                {"name": "city", "value": "Delhi"},
+                {"name": "timezone", "value": "America/New_York"},
+            ],
+        },
+    }
+    headers, body = _sign(setup_module._sk, payload)
+    webhook = WEBHOOK.format(app="test-app", tok="iana-token")
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.patch(webhook)
+        route.return_value = httpx.Response(200, json={"id": "1"})
+        with TestClient(app) as c:
+            r = c.post("/interactions", content=body, headers=headers)
+
+    assert r.status_code == 200
+    assert r.json()["type"] == 5
+    assert route.called, "deferred followup PATCH was not sent"
+    sent = route.calls.last.request.content
+    assert b"chart.png" not in sent
+    assert b"Invalid+timezone+override" in sent
 
 
 def test_vedic_command_latitude_without_longitude_errors():

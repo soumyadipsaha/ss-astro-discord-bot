@@ -6,7 +6,7 @@ from starlette.responses import JSONResponse
 
 from .astro.chart import build_chart
 from .astro.format import format_discord
-from .astro.geo import lookup_city, utc_offset
+from .astro.geo import resolve_location
 from .astro.north_chart import render_north_chart
 from .astro.render import svg_to_png
 from .astro.south_chart import render_south_chart
@@ -59,32 +59,31 @@ async def _finalize_vedic(app_id: str, token: str, data: dict) -> None:
         date_str = f"{year}-{month:02d}-{day:02d}"
         time_str = f"{hour:02d}:{minute:02d}"
 
-        geo = await asyncio.to_thread(lookup_city, opts["city"])
-
-        has_lat, has_lon = "latitude" in opts, "longitude" in opts
-        if has_lat != has_lon:
-            raise ValueError(
-                "Provide both latitude and longitude, or neither. "
-                "Using only one is ambiguous."
-            )
-        lat = float(opts["latitude"]) if has_lat else geo["lat"]
-        lon = float(opts["longitude"]) if has_lon else geo["lon"]
-        tz_name = opts.get("timezone") or geo["tz_name"]
-
-        tz = utc_offset(tz_name, year, month, day, hour, minute)
+        loc = await asyncio.to_thread(
+            resolve_location,
+            city=opts.get("city"),
+            lat_override=float(opts["latitude"]) if "latitude" in opts else None,
+            lon_override=float(opts["longitude"]) if "longitude" in opts else None,
+            tz_override=opts.get("timezone"),
+            year=year,
+            month=month,
+            day=day,
+            hour=hour,
+            minute=minute,
+        )
 
         result = await asyncio.to_thread(
             build_chart,
             date_str,
             time_str,
-            lat,
-            lon,
-            tz,
+            loc["lat"],
+            loc["lon"],
+            loc["tz"],
             bool(opts.get("chalit", False)),
             settings.ayanamsa_offset_arcmin,
         )
-        result["city"] = geo["display"]
-        result["tz_name"] = tz_name
+        result["city"] = loc["display"]
+        result["tz_name"] = loc["tz_label"]
         renderer = render_south_chart if opts.get("chart_style") == "south" else render_north_chart
         svg = await asyncio.to_thread(renderer, result)
         png = await asyncio.to_thread(svg_to_png, svg)
