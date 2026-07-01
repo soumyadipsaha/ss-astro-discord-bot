@@ -1,9 +1,9 @@
 # South Indian chart renderer.
 #
 # Signs are FIXED in a 4×4 grid (Aries at top-left-offset, going clockwise).
-# Planets are placed with proportional rendering (x ∝ degree-in-sign) when
-# more than 3 occupy a cell, otherwise they are centered.  This mirrors the
-# `proportionalPlacement=true` path in single-app/src/lib/SouthIndianChart.svelte.
+# Planets within a cell are laid out on a simple grid (1 column for up to 3
+# planets, more columns beyond that) with font sizes chosen to fill the cell
+# as much as possible without the abbreviation/degree text colliding.
 
 SURFACE  = "#ffffff"
 SURFACE2 = "#f4f4f5"
@@ -25,6 +25,10 @@ ASC_LABEL = "As"
 ASC_COLOR = "#5ea500"
 
 # ── Geometry ────────────────────────────────────────────────────────────────
+# Uniform 4x4 grid of square cells. (A non-uniform grid that shrinks only the
+# center box necessarily turns edge cells into rectangles, since each edge
+# cell shares a row/column with both an outer and an inner dimension - not
+# doable while keeping every cell square.)
 CELL_SIZE = 115
 ORIGIN    = 10
 
@@ -44,10 +48,20 @@ SIGN_CELL = {
     11: (0, 0),   # Pisces
 }
 
-ABBR_SIZE = 13
-DEG_SIZE  = 9
-ENTRY_H   = 25   # pixels between planet rows (showDegrees=true, compact=false)
-PAD_Y     = 6    # vertical padding inside a cell
+PAD_X = 6   # horizontal padding inside a cell
+PAD_Y = 6   # vertical padding inside a cell
+
+# Adaptive font sizing, same approach as north_chart.py: the degree string
+# ("27:04", 5 chars) is wider than the 2-char abbreviation and is usually
+# the thing that overlaps, so size both to the space actually available in
+# the grid slot and only drop the degree line for genuinely dense cells.
+CHAR_WIDTH_RATIO = 0.58  # approx average glyph width as a fraction of font-size
+DEG_CHARS = 5    # "DD:MM"
+ABBR_CHARS = 2.4  # 2-letter label + retrograde marker headroom
+ABBR_SIZE_MAX = 22
+DEG_SIZE_MAX = 13
+ABBR_SIZE_MIN = 9
+DEG_SIZE_MIN = 7
 
 
 def degree_minute(longitude: float) -> str:
@@ -61,91 +75,58 @@ def degree_minute(longitude: float) -> str:
 def _style_block() -> str:
     return (
         "  <style>\n"
-        f"    .planet-abbr {{ font-size:{ABBR_SIZE}px; font-weight:700; font-family:{CHART_FONT}; }}\n"
-        f"    .planet-deg  {{ font-size:{DEG_SIZE}px;  font-weight:500; font-family:{CHART_FONT}; }}\n"
+        f"    .planet-abbr {{ font-weight:700; font-family:{CHART_FONT}; }}\n"
+        f"    .planet-deg  {{ font-weight:500; font-family:{CHART_FONT}; }}\n"
         "  </style>\n"
     )
 
 
-def _placed_planets(px: float, py: float, entries: list) -> list:
-    """Return entries with x, y, anchor, dotX, dotY, reducedFont added."""
+def _fit_sizes(cell_w: float, cell_h: float) -> tuple[float, float, bool]:
+    """Return (abbr_size, deg_size, show_deg) that fit a cell_w x cell_h slot."""
+    abbr_size = min(ABBR_SIZE_MAX, cell_w / (ABBR_CHARS * CHAR_WIDTH_RATIO))
+    deg_size = min(DEG_SIZE_MAX, cell_w / (DEG_CHARS * CHAR_WIDTH_RATIO))
+    height_needed = (abbr_size + deg_size) * 0.8
+    if height_needed > cell_h:
+        scale = cell_h / height_needed
+        abbr_size *= scale
+        deg_size *= scale
+    if deg_size < DEG_SIZE_MIN:
+        abbr_size = min(ABBR_SIZE_MAX, cell_w / (ABBR_CHARS * CHAR_WIDTH_RATIO), cell_h * 0.8)
+        return max(abbr_size, ABBR_SIZE_MIN), 0, False
+    return max(abbr_size, ABBR_SIZE_MIN), max(deg_size, DEG_SIZE_MIN), True
+
+
+def _placed_planets(px: float, py: float, w: float, h: float, entries: list) -> list:
+    """Lay out entries on a simple grid within a w x h cell, sized to fit."""
     if not entries:
         return []
 
-    cx = px + CELL_SIZE / 2
-    cy = py + CELL_SIZE / 2
-    n  = len(entries)
+    sorted_e = sorted(entries, key=lambda e: (0 if e.get("isAsc") else 1, e["degVal"]))
+    n = len(sorted_e)
+    cols = 1 if n <= 3 else (2 if n <= 8 else 3)
+    rows = -(-n // cols)  # ceil division
 
-    # ── Proportional placement (>3 planets) ─────────────────────────────────
-    if n > 3:
-        sorted_e = sorted(entries, key=lambda e: e["degVal"])
+    avail_w = w - 2 * PAD_X
+    avail_h = h - 2 * PAD_Y
+    cell_w = avail_w / cols
+    cell_h = avail_h / rows
+    abbr_size, deg_size, show_deg = _fit_sizes(cell_w, cell_h)
 
-        max_stack_h = CELL_SIZE - PAD_Y * 2
-        entry_h     = min(ENTRY_H, max_stack_h // max(n, 1))
-        total_h     = n * entry_h
-        start_y     = cy - total_h / 2 + entry_h / 2
-
-        # Cluster planets that are within 3° of each other for stagger offsets
-        DEG_CLUSTER = 3
-        clusters: list[int] = []
-        cid = 0
-        for i in range(n):
-            if i > 0 and abs(sorted_e[i]["degVal"] - sorted_e[i - 1]["degVal"]) > DEG_CLUSTER:
-                cid += 1
-            clusters.append(cid)
-
-        cluster_counts: dict[int, int] = {}
-        for c in clusters:
-            cluster_counts[c] = cluster_counts.get(c, 0) + 1
-        cluster_pos: dict[int, int] = {}
-
-        result = []
-        for i, e in enumerate(sorted_e):
-            c = clusters[i]
-            cluster_pos[c] = cluster_pos.get(c, 0) + 1
-            total_in = cluster_counts[c]
-
-            raw_x  = px + 14 + min(e["degVal"] / 30, 1) * (CELL_SIZE - 28)
-            base_y = start_y + i * entry_h
-
-            stagger = 0.0
-            if total_in > 1:
-                stagger = (cluster_pos[c] - (total_in + 1) / 2) * (entry_h * 0.2)
-
-            y = round(max(py + PAD_Y, min(py + CELL_SIZE - PAD_Y, base_y + stagger)))
-
-            left_third  = px + CELL_SIZE / 3
-            right_third = px + 2 * CELL_SIZE / 3
-            if raw_x < left_third:
-                anchor, x = "start", px + PAD_Y
-            elif raw_x > right_third:
-                anchor, x = "end", px + CELL_SIZE - PAD_Y
-            else:
-                anchor, x = "middle", raw_x
-
-            dot_x = round(max(px + 4, min(px + CELL_SIZE - 4, raw_x)))
-            dot_y = round(max(py + PAD_Y, min(py + CELL_SIZE - PAD_Y, base_y)))
-
+    cx = px + w / 2
+    result = []
+    for r in range(rows):
+        row_entries = sorted_e[r * cols:(r + 1) * cols]
+        row_n = len(row_entries)
+        row_y = py + PAD_Y + cell_h * r + cell_h / 2
+        start_x = cx - (row_n - 1) / 2 * cell_w
+        for j, e in enumerate(row_entries):
             result.append({
                 **e,
-                "x": round(x), "y": y,
-                "anchor": anchor,
-                "dotX": dot_x, "dotY": dot_y,
-                "reducedFont": True,
+                "x": round(start_x + j * cell_w), "y": round(row_y),
+                "anchor": "middle",
+                "abbrSize": abbr_size, "degSize": deg_size, "showDeg": show_deg,
             })
-        return result
-
-    # ── Simple centered stacking (≤3 planets) ────────────────────────────────
-    sorted_e = sorted(entries, key=lambda e: 0 if e.get("isAsc") else 1)
-    total_h  = n * ENTRY_H
-    start_y  = cy - total_h / 2 + ENTRY_H / 2
-
-    return [
-        {**e,
-         "x": round(cx), "y": round(start_y + i * ENTRY_H),
-         "anchor": "middle", "reducedFont": False}
-        for i, e in enumerate(sorted_e)
-    ]
+    return result
 
 
 def render_south_chart(result: dict) -> str:
@@ -217,31 +198,32 @@ def render_south_chart(result: dict) -> str:
             )
 
         entries = by_sign.get(si, [])
-        placed  = _placed_planets(px, py, entries)
-
-        # Dots for proportional-mode planets (mark exact degree position)
-        for pt in placed:
-            if pt.get("reducedFont") and pt.get("dotX") is not None:
-                out.append(
-                    f'  <circle cx="{pt["dotX"]}" cy="{pt["dotY"]}" r="3" '
-                    f'fill="{pt["color"]}" stroke="{SURFACE}" stroke-width="1" />\n'
-                )
+        placed  = _placed_planets(px, py, CELL_SIZE, CELL_SIZE, entries)
 
         # Planet labels (abbr + degree)
         for pt in placed:
-            x, y    = pt["x"], pt["y"]
-            anchor  = pt.get("anchor", "middle")
-            retro   = '<tspan dy="-4" font-size="7">R</tspan>' if pt["isRetro"] else ""
-            out.append(
-                f'  <text x="{x}" y="{y - 4}" text-anchor="{anchor}" '
-                f'dominant-baseline="middle" class="planet-abbr" fill="{pt["color"]}">'
-                f'{pt["label"]}{retro}</text>\n'
+            x, y = pt["x"], pt["y"]
+            anchor = pt["anchor"]
+            abbr_size, deg_size, show_deg = pt["abbrSize"], pt["degSize"], pt["showDeg"]
+            retro = (
+                f'<tspan dy="{-abbr_size * 0.35:.1f}" font-size="{abbr_size * 0.55:.1f}">R</tspan>'
+                if pt["isRetro"] else ""
             )
+            if show_deg:
+                abbr_y, deg_y = y - deg_size * 0.5 - 1, y + abbr_size * 0.32
+            else:
+                abbr_y = y
             out.append(
-                f'  <text x="{x}" y="{y + 5}" text-anchor="{anchor}" '
-                f'dominant-baseline="middle" class="planet-deg" fill="{pt["color"]}">'
-                f'{pt["deg"]}</text>\n'
+                f'  <text x="{x}" y="{abbr_y:.1f}" text-anchor="{anchor}" '
+                f'dominant-baseline="middle" class="planet-abbr" style="font-size:{abbr_size:.1f}px" '
+                f'fill="{pt["color"]}">{pt["label"]}{retro}</text>\n'
             )
+            if show_deg:
+                out.append(
+                    f'  <text x="{x}" y="{deg_y:.1f}" text-anchor="{anchor}" '
+                    f'dominant-baseline="middle" class="planet-deg" style="font-size:{deg_size:.1f}px" '
+                    f'fill="{pt["color"]}">{pt["deg"]}</text>\n'
+                )
 
     out.append('</svg>\n')
     return "".join(out)
