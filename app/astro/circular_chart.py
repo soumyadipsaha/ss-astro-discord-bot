@@ -144,6 +144,13 @@ def render_circular_chart(result: dict) -> str:
         _style_block(),
     ]
 
+    # Opaque background for the whole canvas (corners outside the wheel,
+    # plus everything inside the sign ring), so the chart doesn't show a
+    # transparent/dark hole or corners on dark backgrounds (e.g. Discord's
+    # dark theme) - matches north_chart.py/south_chart.py, which are fully
+    # opaque squares.
+    out.append(f'  <rect x="0" y="0" width="480" height="480" fill="{SURFACE}" stroke="none" />\n')
+
     # Sign ring wedges (alternating fill)
     for seg in rashi_segs:
         fill = SURFACE if seg["sign"] % 2 == 0 else SURFACE2
