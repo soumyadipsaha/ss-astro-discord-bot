@@ -25,13 +25,17 @@ def _resolve_ephe_path() -> str | None:
 
 def init_ephe() -> None:
     global _initialized
-    if _initialized:
-        return
-    path = _resolve_ephe_path()
-    if path:
-        swe.set_ephe_path(path)
+    if not _initialized:
+        path = _resolve_ephe_path()
+        if path:
+            swe.set_ephe_path(path)
+        _initialized = True
+    # Re-assert every call rather than trusting it persists: this is a cheap,
+    # side-effect-free C-global set, and in some deployment environments
+    # (e.g. Vercel) it has been observed to silently not stick between
+    # requests on a reused process, falling back to swisseph's default
+    # (Fagan-Bradley) sidereal mode.
     swe.set_sid_mode(swe.SIDM_LAHIRI)
-    _initialized = True
 
 
 def close() -> None:
