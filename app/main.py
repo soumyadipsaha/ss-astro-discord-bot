@@ -9,6 +9,8 @@ from .astro.chart import DEFAULT_AYANAMSA_OFFSET_ARCMIN, build_chart
 from .astro.ephemeris import init_ephe
 from .astro.format import format_discord, format_text
 from .astro.north_chart import render_north_chart
+from .astro.render import svg_to_png
+from .astro.south_chart import render_south_chart
 from .config import settings
 from .interactions import handle_interaction
 from .verify import verify_signature
@@ -55,6 +57,7 @@ async def chart(
     chalit: bool = False,
     text: bool = False,
     image: bool = False,
+    chart_style: str = "north",
     ayanamsa_offset: float | None = None,
 ):
     offset = DEFAULT_AYANAMSA_OFFSET_ARCMIN if ayanamsa_offset is None else ayanamsa_offset
@@ -62,8 +65,10 @@ async def chart(
         build_chart, date, time, lat, lon, tz, chalit, offset
     )
     if image:
-        svg = await asyncio.to_thread(render_north_chart, result)
-        return Response(svg, media_type="image/svg+xml")
+        renderer = render_south_chart if chart_style == "south" else render_north_chart
+        svg = await asyncio.to_thread(renderer, result)
+        png = await asyncio.to_thread(svg_to_png, svg)
+        return Response(png, media_type="image/png")
     if text:
         return Response(format_text(result), media_type="text/plain")
     return {**result, "discord_embed": format_discord(result)}

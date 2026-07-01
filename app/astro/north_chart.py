@@ -94,6 +94,46 @@ SLOTS = {
     11: [(449, 105), (449, 134), (449, 76), (449, 164), (423, 113), (423, 83), (423, 139)],
 }
 
+# Tightest center-to-center gap (px) between two adjacent planet slots in
+# each house, at the original 480x480 geometry. Drives adaptive font sizing
+# below: houses with more breathing room get bigger text.
+MIN_SLOT_GAP = {
+    1: PLANET_SPACING, 4: PLANET_SPACING, 7: PLANET_SPACING, 10: PLANET_SPACING,
+    2: 36, 6: 36, 8: 36, 12: 36,
+    3: 29, 5: 29, 9: 29, 11: 29,
+}
+
+SLOT_CAPACITY = {
+    **{h: sum(row["max"] for row in KENDRA_ROWS[h]) for h in KENDRA_ROWS},
+    **{h: len(SLOTS[h]) for h in SLOTS},
+}
+
+# ── Adaptive font sizing ─────────────────────────────────────────────────
+# The degree string ("27:04", 5 chars) is the widest text in a slot and the
+# usual cause of overlap, not the 2-char planet abbreviation. Pick the
+# largest size that fits the house's available gap, falling back to a
+# smaller size, and only hiding the degree line as a last resort for
+# genuinely cramped houses (e.g. 4+ planets sharing one corner).
+CHAR_WIDTH_RATIO = 0.58  # approx average glyph width as a fraction of font-size, for this condensed font
+DEG_CHARS = 5  # "DD:MM"
+ABBR_CHARS = 2.4  # 2-letter label + retrograde marker headroom
+ABBR_SIZE_MAX = 22
+DEG_SIZE_MAX = 13
+ABBR_SIZE_MIN = 10
+DEG_SIZE_MIN = 8
+
+
+def _sizes_for_house(h: int, n: int) -> tuple[float, float, bool]:
+    """Return (abbr_size, deg_size, show_deg) for a house with n planets."""
+    if n <= 1:
+        return ABBR_SIZE_MAX, DEG_SIZE_MAX, True
+    gap = OVERFLOW_H if n > SLOT_CAPACITY[h] else MIN_SLOT_GAP[h]
+    abbr_size = min(ABBR_SIZE_MAX, gap / (ABBR_CHARS * CHAR_WIDTH_RATIO))
+    deg_size = min(DEG_SIZE_MAX, gap / (DEG_CHARS * CHAR_WIDTH_RATIO))
+    if deg_size < DEG_SIZE_MIN:
+        return max(abbr_size, ABBR_SIZE_MIN), 0, False
+    return max(abbr_size, ABBR_SIZE_MIN), deg_size, True
+
 
 def point_in_convex_polygon(x, y, pts):
     pos = neg = 0
@@ -198,8 +238,8 @@ def _style_block() -> str:
     return (
         "  <style>\n"
         f"    .sign-num {{ font-size:22px; font-weight:700; font-family:{CHART_FONT}; fill:{TEXT}; }}\n"
-        f"    .planet-abbr {{ font-size:13px; font-weight:400; font-family:{CHART_FONT}; }}\n"
-        f"    .planet-deg {{ font-size:9px; font-weight:500; font-family:{CHART_FONT}; }}\n"
+        f"    .planet-abbr {{ font-weight:400; font-family:{CHART_FONT}; }}\n"
+        f"    .planet-deg {{ font-weight:500; font-family:{CHART_FONT}; }}\n"
         "  </style>\n"
     )
 
@@ -249,17 +289,29 @@ def render_north_chart(result: dict) -> str:
             f'  <text x="{lx}" y="{ly}" text-anchor="middle" dominant-baseline="middle" '
             f'class="sign-num">{signnum}</text>\n'
         )
-        for pt in placed_planets(h, by_house.get(h, [])):
+        entries = by_house.get(h, [])
+        abbr_size, deg_size, show_deg = _sizes_for_house(h, len(entries))
+        for pt in placed_planets(h, entries):
             x, y = clamp_to_polygon(pt["x"], pt["y"], POLYGON_PTS[h])
-            retro = '<tspan dy="-4" font-size="7">R</tspan>' if pt["isRetro"] else ""
-            out.append(
-                f'  <text x="{x}" y="{y - 4}" text-anchor="middle" dominant-baseline="middle" '
-                f'class="planet-abbr" fill="{pt["color"]}">{pt["label"]}{retro}</text>\n'
+            if show_deg:
+                abbr_y, deg_y = y - deg_size * 0.5 - 1, y + abbr_size * 0.32
+            else:
+                abbr_y, deg_y = y, None
+            retro = (
+                f'<tspan dy="{-abbr_size * 0.35:.1f}" font-size="{abbr_size * 0.55:.1f}">R</tspan>'
+                if pt["isRetro"] else ""
             )
             out.append(
-                f'  <text x="{x}" y="{y + 5}" text-anchor="middle" dominant-baseline="middle" '
-                f'class="planet-deg" fill="{pt["color"]}">{pt["degree"]}</text>\n'
+                f'  <text x="{x}" y="{abbr_y:.1f}" text-anchor="middle" dominant-baseline="middle" '
+                f'class="planet-abbr" style="font-size:{abbr_size:.1f}px" '
+                f'fill="{pt["color"]}">{pt["label"]}{retro}</text>\n'
             )
+            if show_deg:
+                out.append(
+                    f'  <text x="{x}" y="{deg_y:.1f}" text-anchor="middle" dominant-baseline="middle" '
+                    f'class="planet-deg" style="font-size:{deg_size:.1f}px" '
+                    f'fill="{pt["color"]}">{pt["degree"]}</text>\n'
+                )
 
     out.append('</svg>\n')
     return "".join(out)
