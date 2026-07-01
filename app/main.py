@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 
 from .astro.chart import DEFAULT_AYANAMSA_OFFSET_ARCMIN, build_chart
+from .astro.circular_chart import render_circular_chart
 from .astro.ephemeris import init_ephe
 from .astro.format import format_discord, format_text
 from .astro.north_chart import render_north_chart
@@ -65,7 +66,9 @@ async def chart(
         build_chart, date, time, lat, lon, tz, chalit, offset
     )
     if image:
-        renderer = render_south_chart if chart_style == "south" else render_north_chart
+        renderer = {"south": render_south_chart, "circular": render_circular_chart}.get(
+            chart_style, render_north_chart
+        )
         svg = await asyncio.to_thread(renderer, result)
         png = await asyncio.to_thread(svg_to_png, svg)
         return Response(png, media_type="image/png")

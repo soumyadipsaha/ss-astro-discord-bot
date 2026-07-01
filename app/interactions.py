@@ -5,6 +5,7 @@ from starlette.background import BackgroundTask
 from starlette.responses import JSONResponse
 
 from .astro.chart import build_chart
+from .astro.circular_chart import render_circular_chart
 from .astro.format import format_discord
 from .astro.geo import resolve_location
 from .astro.north_chart import render_north_chart
@@ -83,7 +84,8 @@ async def _finalize_vedic(app_id: str, token: str, data: dict) -> None:
         )
         result["city"] = loc["display"]
         result["tz_name"] = loc["tz_label"]
-        renderer = render_south_chart if opts.get("chart_style") == "south" else render_north_chart
+        style = opts.get("chart_style")
+        renderer = {"south": render_south_chart, "circular": render_circular_chart}.get(style, render_north_chart)
         svg = await asyncio.to_thread(renderer, result)
         png = await asyncio.to_thread(svg_to_png, svg)
     except KeyError as e:

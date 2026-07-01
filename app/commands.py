@@ -76,12 +76,13 @@ VEDIC_COMMAND = {
         },
         {
             "name": "chart_style",
-            "description": "Chart style: North Indian (diamond) or South Indian (grid). Default: North.",
+            "description": "Chart style: North Indian (diamond), South Indian (grid), or Circular (wheel). Default: North.",
             "type": 3,
             "required": False,
             "choices": [
                 {"name": "North Indian", "value": "north"},
                 {"name": "South Indian", "value": "south"},
+                {"name": "Circular", "value": "circular"},
             ],
         },
     ],
