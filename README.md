@@ -4,11 +4,13 @@ A Discord slash-command bot that returns a **sidereal (Lahiri) Vedic chart** —
 
 ## What `/vedic` returns
 
-`/vedic date time lat lon tz [chalit]` → a "Bot is thinking…" reply that resolves into:
+`/vedic year month day hour minute city [latitude longitude] [timezone] [chalit] [chart_style]` → a "Bot is thinking…" reply that resolves into:
 
 - A **North-Indian chart image** (SVG → PNG, shown inline in Discord)
 - **Lagna (Ascendant)** + **Navagraha** (Surya…Shani, Rahu, Ketu) — sidereal longitude, sign, nakshatra + pada, retrograde flag
 - With `chalit: true` — Sripati (Porphyry) bhava placements for each graha
+
+`city` is required and is always the name shown in the result; it also supplies the default coordinates and timezone. Provide `latitude` + `longitude` (together) to override the city's coordinates for the calculation, and/or `timezone` (IANA name, e.g. `Asia/Kolkata`) to override the timezone used for the local→UTC conversion.
 
 Ayanamsa: Lahiri (`SE_SIDM_LAHIRI`), adjustable via `AYANAMSA_OFFSET_ARCMIN`.
 
@@ -93,7 +95,7 @@ uv run pytest
 
 ## Notes
 
-- **Time input**: `time` is the local clock time at the birth place; `tz` is the UTC offset (e.g. `5.5` IST, `-4` EDT).
+- **Time input**: `hour`/`minute` is the local clock time at the birth place. The timezone is derived from `city` (or the `timezone` override) and applied with full DST rules.
 - **Rahu/Ketu**: mean lunar node; Ketu is exactly 180° from Rahu.
 - **Data files**: `ephe/*.se1` cover **1800–2399** at full Swiss Ephemeris precision.
 - **License**: Swiss Ephemeris is dual-licensed **AGPL** or a paid Professional license from Astrodienst.

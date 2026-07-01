@@ -59,8 +59,89 @@ def test_vedic_command_returns_embed():
             ],
         },
     }
+    _run_and_assert_chart(payload, app_id="test-app", tok="interaction-token")
+
+
+def test_vedic_command_latlon_override_builds_chart():
+    payload = {
+        "type": 2,
+        "token": "ll-token",
+        "application_id": "test-app",
+        "data": {
+            "name": "vedic",
+            "options": [
+                {"name": "year", "value": 2000},
+                {"name": "month", "value": 1},
+                {"name": "day", "value": 1},
+                {"name": "hour", "value": 12},
+                {"name": "minute", "value": 0},
+                {"name": "city", "value": "Mumbai"},
+                {"name": "latitude", "value": 19.076},
+                {"name": "longitude", "value": 72.8777},
+            ],
+        },
+    }
+    _run_and_assert_chart(payload, app_id="test-app", tok="ll-token")
+
+
+def test_vedic_command_timezone_override_builds_chart():
+    payload = {
+        "type": 2,
+        "token": "tz-token",
+        "application_id": "test-app",
+        "data": {
+            "name": "vedic",
+            "options": [
+                {"name": "year", "value": 2000},
+                {"name": "month", "value": 1},
+                {"name": "day", "value": 1},
+                {"name": "hour", "value": 12},
+                {"name": "minute", "value": 0},
+                {"name": "city", "value": "Delhi"},
+                {"name": "timezone", "value": "America/New_York"},
+            ],
+        },
+    }
+    _run_and_assert_chart(payload, app_id="test-app", tok="tz-token")
+
+
+def test_vedic_command_latitude_without_longitude_errors():
+    payload = {
+        "type": 2,
+        "token": "mismatch-token",
+        "application_id": "test-app",
+        "data": {
+            "name": "vedic",
+            "options": [
+                {"name": "year", "value": 2000},
+                {"name": "month", "value": 1},
+                {"name": "day", "value": 1},
+                {"name": "hour", "value": 12},
+                {"name": "minute", "value": 0},
+                {"name": "city", "value": "Delhi"},
+                {"name": "latitude", "value": 19.076},
+            ],
+        },
+    }
     headers, body = _sign(setup_module._sk, payload)
-    webhook = WEBHOOK.format(app="test-app", tok="interaction-token")
+    webhook = WEBHOOK.format(app="test-app", tok="mismatch-token")
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.patch(webhook)
+        route.return_value = httpx.Response(200, json={"id": "1"})
+        with TestClient(app) as c:
+            r = c.post("/interactions", content=body, headers=headers)
+
+    assert r.status_code == 200
+    assert r.json()["type"] == 5
+    assert route.called, "deferred followup PATCH was not sent"
+    sent = route.calls.last.request.content
+    assert b"chart.png" not in sent
+    assert b"both latitude and longitude" in sent.replace(b"+", b" ")
+
+
+def _run_and_assert_chart(payload, app_id, tok):
+    headers, body = _sign(setup_module._sk, payload)
+    webhook = WEBHOOK.format(app=app_id, tok=tok)
     with respx.mock(assert_all_called=False) as mock:
         route = mock.patch(webhook)
         route.return_value = httpx.Response(200, json={"id": "1"})

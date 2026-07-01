@@ -42,9 +42,31 @@ VEDIC_COMMAND = {
         },
         {
             "name": "city",
-            "description": "Birth city (e.g. Mumbai, London, New York)",
+            "description": "Birth city, e.g. Mumbai. Always shown in the result and used for the timezone.",
             "type": 3,
             "required": True,
+        },
+        {
+            "name": "latitude",
+            "description": "Optional: override the city's latitude for precise calculations (e.g. 19.0760).",
+            "type": 10,
+            "required": False,
+            "min_value": -90,
+            "max_value": 90,
+        },
+        {
+            "name": "longitude",
+            "description": "Optional: override the city's longitude for precise calculations (e.g. 72.8777).",
+            "type": 10,
+            "required": False,
+            "min_value": -180,
+            "max_value": 180,
+        },
+        {
+            "name": "timezone",
+            "description": "Override the IANA timezone (e.g. Asia/Kolkata) used for the local-to-UTC conversion.",
+            "type": 3,
+            "required": False,
         },
         {
             "name": "chalit",

@@ -60,20 +60,31 @@ async def _finalize_vedic(app_id: str, token: str, data: dict) -> None:
         time_str = f"{hour:02d}:{minute:02d}"
 
         geo = await asyncio.to_thread(lookup_city, opts["city"])
-        tz = utc_offset(geo["tz_name"], year, month, day, hour, minute)
+
+        has_lat, has_lon = "latitude" in opts, "longitude" in opts
+        if has_lat != has_lon:
+            raise ValueError(
+                "Provide both latitude and longitude, or neither. "
+                "Using only one is ambiguous."
+            )
+        lat = float(opts["latitude"]) if has_lat else geo["lat"]
+        lon = float(opts["longitude"]) if has_lon else geo["lon"]
+        tz_name = opts.get("timezone") or geo["tz_name"]
+
+        tz = utc_offset(tz_name, year, month, day, hour, minute)
 
         result = await asyncio.to_thread(
             build_chart,
             date_str,
             time_str,
-            geo["lat"],
-            geo["lon"],
+            lat,
+            lon,
             tz,
             bool(opts.get("chalit", False)),
             settings.ayanamsa_offset_arcmin,
         )
         result["city"] = geo["display"]
-        result["tz_name"] = geo["tz_name"]
+        result["tz_name"] = tz_name
         renderer = render_south_chart if opts.get("chart_style") == "south" else render_north_chart
         svg = await asyncio.to_thread(renderer, result)
         png = await asyncio.to_thread(svg_to_png, svg)
