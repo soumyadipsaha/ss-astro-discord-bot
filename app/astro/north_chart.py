@@ -83,37 +83,33 @@ KENDRA_ROWS = {
     ],
 }
 
-SLOTS = {
-    2: [(107, 39), (144, 39), (71, 39), (180, 39), (104, 68), (146, 68)],
-    6: [(104, 454), (146, 454), (71, 454), (180, 454), (94, 426), (154, 426)],
-    8: [(318, 454), (360, 454), (277, 454), (402, 454), (313, 426), (395, 426)],
-    12: [(329, 39), (365, 39), (292, 39), (402, 39), (324, 68), (381, 68)],
-    3: [(31, 110), (31, 140), (31, 81), (31, 169), (57, 115), (57, 83), (57, 148)],
-    5: [(31, 314), (31, 344), (31, 285), (31, 373), (57, 355), (57, 315), (57, 390)],
-    9: [(449, 335), (449, 364), (449, 306), (449, 394), (423, 355), (423, 315), (423, 381)],
-    11: [(449, 105), (449, 134), (449, 76), (449, 164), (423, 113), (423, 83), (423, 139)],
-}
+# Corner houses (2,3,5,6,8,9,11,12) are right-triangles; rather than
+# hand-placed discrete points, each gets a simple rectangular "safe box"
+# derived from its own polygon's bounding box (shrunk to stay inside the
+# triangle, with clamp_to_polygon as a final backstop). Planets are then
+# laid out on a grid within that box - same approach as south_chart.py -
+# so entries always use the actual available width *and* height instead of
+# overflowing into an already-cramped row.
+_CORNER_HOUSES = (2, 3, 5, 6, 8, 9, 11, 12)
+_BOX_SHRINK = 0.58
 
-# Tightest center-to-center gap (px) between two adjacent planet slots in
-# each house, at the original 480x480 geometry. Drives adaptive font sizing
-# below: houses with more breathing room get bigger text.
-MIN_SLOT_GAP = {
-    1: PLANET_SPACING, 4: PLANET_SPACING, 7: PLANET_SPACING, 10: PLANET_SPACING,
-    2: 36, 6: 36, 8: 36, 12: 36,
-    3: 29, 5: 29, 9: 29, 11: 29,
-}
 
-SLOT_CAPACITY = {
-    **{h: sum(row["max"] for row in KENDRA_ROWS[h]) for h in KENDRA_ROWS},
-    **{h: len(SLOTS[h]) for h in SLOTS},
-}
+def _house_box(h: int) -> tuple[float, float, float, float]:
+    xs = [p[0] for p in POLYGON_PTS[h]]
+    ys = [p[1] for p in POLYGON_PTS[h]]
+    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+    w, ht = (max(xs) - min(xs)) * _BOX_SHRINK, (max(ys) - min(ys)) * _BOX_SHRINK
+    return cx, cy, w, ht
+
+
+HOUSE_BOX = {h: _house_box(h) for h in _CORNER_HOUSES}
 
 # ── Adaptive font sizing ─────────────────────────────────────────────────
 # The degree string ("27:04", 5 chars) is the widest text in a slot and the
 # usual cause of overlap, not the 2-char planet abbreviation. Pick the
-# largest size that fits the house's available gap, falling back to a
-# smaller size, and only hiding the degree line as a last resort for
-# genuinely cramped houses (e.g. 4+ planets sharing one corner).
+# largest size that fits the grid cell actually used for placement, falling
+# back to a smaller size, and only hiding the degree line as a last resort
+# for genuinely cramped houses.
 CHAR_WIDTH_RATIO = 0.58  # approx average glyph width as a fraction of font-size, for this condensed font
 DEG_CHARS = 5  # "DD:MM"
 ABBR_CHARS = 2.4  # 2-letter label + retrograde marker headroom
@@ -123,16 +119,39 @@ ABBR_SIZE_MIN = 10
 DEG_SIZE_MIN = 8
 
 
+def _grid_shape(n: int, w: float, h: float) -> tuple[int, int]:
+    """(cols, rows) for n entries, sized to the box's own aspect ratio so
+    narrow (tall) houses get more rows instead of needlessly thin columns."""
+    if n <= 1:
+        return 1, 1
+    cols = max(1, min(n, round((n * w / h) ** 0.5)))
+    return cols, -(-n // cols)  # ceil division
+
+
+def _fit_sizes(cell_w: float, cell_h: float) -> tuple[float, float, bool]:
+    """Return (abbr_size, deg_size, show_deg) that fit a cell_w x cell_h slot."""
+    abbr_size = min(ABBR_SIZE_MAX, cell_w / (ABBR_CHARS * CHAR_WIDTH_RATIO))
+    deg_size = min(DEG_SIZE_MAX, cell_w / (DEG_CHARS * CHAR_WIDTH_RATIO))
+    height_needed = (abbr_size + deg_size) * 0.8
+    if height_needed > cell_h:
+        scale = cell_h / height_needed
+        abbr_size *= scale
+        deg_size *= scale
+    if deg_size < DEG_SIZE_MIN:
+        abbr_size = min(ABBR_SIZE_MAX, cell_w / (ABBR_CHARS * CHAR_WIDTH_RATIO), cell_h * 0.8)
+        return max(abbr_size, ABBR_SIZE_MIN), 0, False
+    return max(abbr_size, ABBR_SIZE_MIN), max(deg_size, DEG_SIZE_MIN), True
+
+
 def _sizes_for_house(h: int, n: int) -> tuple[float, float, bool]:
     """Return (abbr_size, deg_size, show_deg) for a house with n planets."""
     if n <= 1:
         return ABBR_SIZE_MAX, DEG_SIZE_MAX, True
-    gap = OVERFLOW_H if n > SLOT_CAPACITY[h] else MIN_SLOT_GAP[h]
-    abbr_size = min(ABBR_SIZE_MAX, gap / (ABBR_CHARS * CHAR_WIDTH_RATIO))
-    deg_size = min(DEG_SIZE_MAX, gap / (DEG_CHARS * CHAR_WIDTH_RATIO))
-    if deg_size < DEG_SIZE_MIN:
-        return max(abbr_size, ABBR_SIZE_MIN), 0, False
-    return max(abbr_size, ABBR_SIZE_MIN), deg_size, True
+    if h in HOUSE_BOX:
+        _, _, w, ht = HOUSE_BOX[h]
+        cols, rows = _grid_shape(n, w, ht)
+        return _fit_sizes(w / cols, ht / rows)
+    return _fit_sizes(PLANET_SPACING, PLANET_SPACING)
 
 
 def point_in_convex_polygon(x, y, pts):
@@ -206,16 +225,21 @@ def placed_planets(h, entries):
         return []
     if h in (1, 4, 7, 10):
         return placed_kendra(h, entries)
+
     sorted_e = _asc_first(entries)
-    slots = SLOTS[h]
+    n = len(sorted_e)
+    cx, cy, w, ht = HOUSE_BOX[h]
+    cols, rows = _grid_shape(n, w, ht)
+    cell_w, cell_h = w / cols, ht / rows
+
     result = []
-    for i, e in enumerate(sorted_e):
-        if i < len(slots):
-            x, y = slots[i]
-            result.append({**e, "x": x, "y": y})
-        else:
-            lx, ly = slots[-1]
-            result.append({**e, "x": lx, "y": ly + (i - len(slots) + 1) * OVERFLOW_H})
+    for r in range(rows):
+        row_entries = sorted_e[r * cols:(r + 1) * cols]
+        row_n = len(row_entries)
+        row_y = cy - ht / 2 + cell_h * r + cell_h / 2
+        start_x = cx - (row_n - 1) / 2 * cell_w
+        for j, e in enumerate(row_entries):
+            result.append({**e, "x": start_x + j * cell_w, "y": row_y})
     return result
 
 
