@@ -18,12 +18,5 @@ class Settings:
     def ephe_path(self) -> str:
         return os.environ.get("EPHE_PATH", "")
 
-    @property
-    def ayanamsa_offset_arcmin(self) -> float:
-        try:
-            return float(os.environ.get("AYANAMSA_OFFSET_ARCMIN", "0") or 0)
-        except ValueError:
-            return 0.0
-
 
 settings = Settings()

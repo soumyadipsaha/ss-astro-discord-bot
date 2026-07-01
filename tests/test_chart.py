@@ -59,7 +59,7 @@ def test_porphyry_not_placidus():
 
 def test_custom_ayanamsa_offset():
     args = ("2000-01-01", "12:00", 28.6139, 77.2090, 5.5)
-    base = chart.build_chart(*args)
+    base = chart.build_chart(*args, ayanamsa_offset_arcmin=0.0)
     custom = chart.build_chart(*args, ayanamsa_offset_arcmin=6.0)
 
     assert base["ayanamsa_label"] == "Lahiri"

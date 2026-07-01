@@ -80,7 +80,6 @@ async def _finalize_vedic(app_id: str, token: str, data: dict) -> None:
             loc["lon"],
             loc["tz"],
             bool(opts.get("chalit", False)),
-            settings.ayanamsa_offset_arcmin,
         )
         result["city"] = loc["display"]
         result["tz_name"] = loc["tz_label"]

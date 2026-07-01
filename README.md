@@ -12,7 +12,7 @@ A Discord slash-command bot that returns a **sidereal (Lahiri) Vedic chart** —
 
 `city` is required and is always the name shown in the result; it also supplies the default coordinates and timezone. Provide `latitude` + `longitude` (together) to override the city's coordinates for the calculation, and/or `timezone` (a numeric UTC offset, e.g. `5.5` or `5:30`) to override the timezone used for the local→UTC conversion.
 
-Ayanamsa: Lahiri (`SE_SIDM_LAHIRI`), optionally adjustable via `AYANAMSA_OFFSET_ARCMIN` (unset/`0` = plain Lahiri).
+Ayanamsa: Lahiri + 6′ (`SE_SIDM_LAHIRI` with a fixed 6-arcminute offset baked into `DEFAULT_AYANAMSA_OFFSET_ARCMIN` in `app/astro/chart.py`).
 
 ## Prerequisites
 
@@ -74,7 +74,6 @@ vercel                       # link / create project
 vercel env add DISCORD_APP_ID
 vercel env add DISCORD_PUBLIC_KEY
 vercel env add DISCORD_TOKEN
-vercel env add AYANAMSA_OFFSET_ARCMIN
 vercel --prod
 ```
 

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 
-from .astro.chart import build_chart
+from .astro.chart import DEFAULT_AYANAMSA_OFFSET_ARCMIN, build_chart
 from .astro.ephemeris import close, init_ephe
 from .astro.format import format_discord, format_text
 from .astro.north_chart import render_north_chart
@@ -52,7 +52,7 @@ async def chart(
     image: bool = False,
     ayanamsa_offset: float | None = None,
 ):
-    offset = settings.ayanamsa_offset_arcmin if ayanamsa_offset is None else ayanamsa_offset
+    offset = DEFAULT_AYANAMSA_OFFSET_ARCMIN if ayanamsa_offset is None else ayanamsa_offset
     result = await asyncio.to_thread(
         build_chart, date, time, lat, lon, tz, chalit, offset
     )

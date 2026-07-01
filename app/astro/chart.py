@@ -6,6 +6,7 @@ from .constants import GRAHAS, NAKSHATRAS, SIGNS
 from .ephemeris import init_ephe
 
 NAK_WIDTH = 360.0 / 27.0
+DEFAULT_AYANAMSA_OFFSET_ARCMIN = 6.0
 
 
 def local_to_jd(date_str: str, time_str: str, tz: float):
@@ -117,7 +118,7 @@ def build_chart(
     lon: float,
     tz: float,
     chalit: bool = False,
-    ayanamsa_offset_arcmin: float = 0.0,
+    ayanamsa_offset_arcmin: float = DEFAULT_AYANAMSA_OFFSET_ARCMIN,
 ) -> dict:
     if not (-90.0 <= lat <= 90.0):
         raise ValueError("Latitude must be between -90 and 90.")
