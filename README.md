@@ -10,9 +10,9 @@ A Discord slash-command bot that returns a **sidereal (Lahiri) Vedic chart** —
 - **Lagna (Ascendant)** + **Navagraha** (Surya…Shani, Rahu, Ketu) — sidereal longitude, sign, nakshatra + pada, retrograde flag
 - With `chalit: true` — Sripati (Porphyry) bhava placements for each graha
 
-`city` is required and is always the name shown in the result; it also supplies the default coordinates and timezone. Provide `latitude` + `longitude` (together) to override the city's coordinates for the calculation, and/or `timezone` (IANA name, e.g. `Asia/Kolkata`) to override the timezone used for the local→UTC conversion.
+`city` is required and is always the name shown in the result; it also supplies the default coordinates and timezone. Provide `latitude` + `longitude` (together) to override the city's coordinates for the calculation, and/or `timezone` (a numeric UTC offset, e.g. `5.5` or `5:30`) to override the timezone used for the local→UTC conversion.
 
-Ayanamsa: Lahiri (`SE_SIDM_LAHIRI`), adjustable via `AYANAMSA_OFFSET_ARCMIN`.
+Ayanamsa: Lahiri (`SE_SIDM_LAHIRI`), optionally adjustable via `AYANAMSA_OFFSET_ARCMIN` (unset/`0` = plain Lahiri).
 
 ## Prerequisites
 
@@ -39,7 +39,6 @@ Fill in your `.env`:
 DISCORD_APP_ID=...
 DISCORD_PUBLIC_KEY=...
 DISCORD_TOKEN=...
-AYANAMSA_OFFSET_ARCMIN=6
 ```
 
 > The project does **not** auto-load `.env`, so pass `--env-file .env` to every `uv run` command below.

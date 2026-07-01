@@ -21,9 +21,9 @@ class Settings:
     @property
     def ayanamsa_offset_arcmin(self) -> float:
         try:
-            return float(os.environ.get("AYANAMSA_OFFSET_ARCMIN", "6") or 6)
+            return float(os.environ.get("AYANAMSA_OFFSET_ARCMIN", "0") or 0)
         except ValueError:
-            return 6.0
+            return 0.0
 
 
 settings = Settings()
